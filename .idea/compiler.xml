@@ -12,6 +12,7 @@
         <module name="slf4j-logback-classic" />
         <module name="test-logger-message" />
         <module name="slf4j-logback-classic-test" />
+        <module name="project-application" />
         <module name="slf4j-commons-logging" />
       </profile>
     </annotationProcessing>
