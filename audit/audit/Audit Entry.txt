@@ -1,0 +1,8 @@
+TODO. Audit Entry 基本格式: 来源,错误类型和信息
+{
+  "reference" : "CONFIG",
+  "DEFAULT_OPERATOR" : "admin@test.net",
+  "additional_info" : "File validation failed and Explanation",
+  "errorCode" : "WLM_IPE_0044",
+  "errorMessageArgs" : "{\"ROW_NUMBER\":\"0\",\"TOKEN_NUMBER_ALLOWED\":\"3\"}"
+}

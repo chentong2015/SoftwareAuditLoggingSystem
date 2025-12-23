@@ -10,11 +10,8 @@
     <version>1.0-SNAPSHOT</version>
 
     <modules>
-        <module>log4j-api-core</module>
-        <module>slf4j-commons-logging</module>
-        <module>slf4j-logback-classic</module>
-        <module>slf4j-logback-classic-test</module>
-        <module>test-logger-message</module>
+        <module>audit</module>
+        <module>logging-library</module>
     </modules>
 
     <properties>
