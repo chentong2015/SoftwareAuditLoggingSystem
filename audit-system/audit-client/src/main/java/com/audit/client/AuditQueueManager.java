@@ -80,20 +80,27 @@ public class AuditQueueManager {
                 return auditCount;
             }
 
-            // 创建".tmp"临时文件来处理所有待发送的Audit, 每个文件存储一行数据
+            // 创建".tmp"临时路径对象来处理所有待发送的Audit
             File tmpFile = new File(toSendFile.getAbsolutePath() + ".tmp");
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(toSendFile), "UTF-8"))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     try {
                         ++auditCount;
+                        // TODO. 每一行创建独立的空文件写入，不使用append模式，每个文件存储一行数据
                         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tmpFile, false), "UTF-8"))) {
                             writer.write(line);
                             writer.newLine();
                         }
+
                         AuditEntry auditEntry = jsonMapper.readValue(line, AuditEntry.class);
                         boolean status = sender.apply(auditEntry);
-                        completeSendAudit(status, tmpFile, auditCount);
+                        if (status) {
+                            System.out.println("Audit Entry :" + auditEntry.getId() + "send successfully !");
+                            completeSendAudit(toSendFile, tmpFile, auditCount);
+                        } else {
+                            tmpFile.delete();
+                        }
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -106,13 +113,14 @@ public class AuditQueueManager {
         return auditCount;
     }
 
-    // 将Queue JSON文件数据拷贝到待处理文件中, 重新创建新JSON文件
+    // TODO. 将Queue JSON文件数据拷贝到待处理文件中, 重新创建新JSON文件
     // Return an unique audit queue copy file and reset the main audit queue
     private Path getPendingAudits() {
         synchronized (queueJsonFile) {
             if (!isQueueEmpty() && queueJsonFile.exists()) {
                 try {
-                    Path pendingQueue = Paths.get(queueJsonFile.getAbsolutePath() + "_" + UUID.randomUUID() + TO_SEND_FILE_SUFFIX).toAbsolutePath().normalize();
+                    String toSendPath = queueJsonFile.getAbsolutePath() + "_" + UUID.randomUUID() + TO_SEND_FILE_SUFFIX;
+                    Path pendingQueue = Paths.get(toSendPath).toAbsolutePath().normalize();
                     Files.move(queueJsonFile.toPath(), pendingQueue, StandardCopyOption.ATOMIC_MOVE);
                     queueJsonFile.createNewFile();
                     return pendingQueue;
@@ -124,21 +132,19 @@ public class AuditQueueManager {
         }
     }
 
-    // 完成单一Audit事件的发送: 如果成功则将tmp改成完成文件，以便后续过滤已发送的Audits
-    private void completeSendAudit(boolean isSuccess, File tmpFile, long auditCount) throws IOException {
-        if (isSuccess) {
-            final String finalFileName = String.format(tmpFile.getAbsolutePath() + ACKNOWLEDGE_FILE_PATTERN, auditCount);
-            final Path finalStatusPath = Paths.get(finalFileName).toAbsolutePath().normalize();
-            Files.move(tmpFile.toPath(), finalStatusPath, StandardCopyOption.ATOMIC_MOVE);
-        } else {
-            tmpFile.delete();
-        }
+    // TODO. 完成单一Audit事件的发送，处理tmp临时文件
+    // 如果成功则将tmp改成完成文件(名称基于toSend文件名)，以便过滤和发送后续Audit
+    private void completeSendAudit(File toSendFile, File tmpFile, long auditCount) throws IOException {
+        String finalFileName = String.format(toSendFile.getAbsolutePath() + ACKNOWLEDGE_FILE_PATTERN, auditCount);
+        Path finalStatusPath = Paths.get(finalFileName).toAbsolutePath().normalize();
+        Files.move(tmpFile.toPath(), finalStatusPath, StandardCopyOption.ATOMIC_MOVE);
     }
 
     // TODO. 如果出现异常，需要先将"toSend.xml"文件中剩余Audit进行恢复
     // Restore missing audit events from temporary files in case of crash
     public void restoreMissingAudits() {
-        FileHelper.applyOnFiles("Restore initial audit queue", queueJsonFile, queueJsonFile.getName(), path -> {
+        FileHelper.applyOnFiles( queueJsonFile, queueJsonFile.getName(),
+        path -> {
             if (path.toString().endsWith(TO_SEND_FILE_SUFFIX)) {
                requeueMissingAuditsAndDelete(path);
             }
@@ -155,8 +161,7 @@ public class AuditQueueManager {
         File tmpRequeueFile = new File(toSendFile.getAbsolutePath() + REQUEUE_FILE_SUFFIX);
         try {
             auditAlreadySent = new HashSet<>();
-            FileHelper.applyOnFiles("retrieve audit already sent", toSendFile,
-                    toSendFilePath.getFileName() + ACKNOWLEDGE_STRING,
+            FileHelper.applyOnFiles(toSendFile, toSendFilePath.getFileName().toString() + ACKNOWLEDGE_STRING,
                     path -> auditAlreadySent.add(path.getFileName().toString()));
 
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(toSendFile), "UTF-8"));
@@ -174,7 +179,7 @@ public class AuditQueueManager {
     // TODO. 过滤掉已经成功发送到Audit Event事件
     private void requeueMissingLine(Path toSendFilePath, BufferedReader reader, BufferedWriter writer) throws IOException {
         String line;
-        long auditCounter = 0;
+        long auditCounter = 0L;
         while ((line = reader.readLine()) != null) {
             try {
                 ++auditCounter;
@@ -197,6 +202,7 @@ public class AuditQueueManager {
             return;
         }
 
+        // TODO. 必须加锁处理, 避免多个线程写入操作数据丢失
         synchronized (queueJsonFile) {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(queueJsonFile), "UTF-8"));
                  BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(tmpRequeueFile, true), "UTF-8"))) {
@@ -215,7 +221,7 @@ public class AuditQueueManager {
     }
 
     private void deleteQueueTempFiles(File toSendFile, Path toSendFilePath) {
-        FileHelper.applyOnFiles("delete temporary audit file", toSendFile, toSendFilePath.getFileName().toString(),
+        FileHelper.applyOnFiles(toSendFile, toSendFilePath.getFileName().toString(),
             path -> {
                 try {
                     Files.deleteIfExists(path);

@@ -38,7 +38,7 @@ public class AuditorImpl {
             while (true) {
                 try {
                     sendWaitingEvents();
-                    Thread.sleep(5000);
+                    Thread.sleep(30000);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
@@ -53,6 +53,7 @@ public class AuditorImpl {
 
             long nbAudits = auditQueueManager.sendQueueAudits(entry -> {
                 if (!isValidDataRawSize(entry)) {
+                    // 返回true才能将audit清除，避免线程的无限循环
                     return true;
                 }
                 return sendHttpRequest();
