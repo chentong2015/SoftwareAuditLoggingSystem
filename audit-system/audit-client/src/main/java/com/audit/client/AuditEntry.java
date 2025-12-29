@@ -1,4 +1,4 @@
-package com.audit.client.model;
+package com.audit.client;
 
 import java.util.Date;
 import java.util.Map;
@@ -6,14 +6,15 @@ import java.util.Map;
 public class AuditEntry {
 
     private String id;
-
     private String eventId;
     private Date timestamp;
     private String operatorId;
     private String operatorName;
     private String comments;
-
     private Map<String, String> objectProperties;
+
+    public AuditEntry(){
+    }
 
     public String getId() {
         return id;
