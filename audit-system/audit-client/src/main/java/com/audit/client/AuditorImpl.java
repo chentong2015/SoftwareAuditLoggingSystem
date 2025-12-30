@@ -1,13 +1,9 @@
 package com.audit.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.web.client.RestTemplate;
+import com.audit.client.util.HttpHelper;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.Random;
 
-import static com.audit.client.AuditQueueManager.MAX_LENGTH_DATA_RAW;
 import static com.audit.client.AuditQueueManager.MAX_QUEUE_SIZE;
 
 // Auditor包含整个程序的核心逻辑
@@ -51,44 +47,16 @@ public class AuditorImpl {
                 return;
             }
 
+            // 返回true才能将audit清除，避免线程的无限循环
             long nbAudits = auditQueueManager.sendQueueAudits(entry -> {
-                if (!isValidDataRawSize(entry)) {
-                    // 返回true才能将audit清除，避免线程的无限循环
+                if (entry.isValidDataRawSize()) {
                     return true;
                 }
-                return sendHttpRequest();
+                return HttpHelper.sendGetRequest();
             });
-
             if (nbAudits > MAX_QUEUE_SIZE) {
                 System.out.println("Event queue size is full");
             }
-        }
-
-        // Log error and ignore sending large payload data raw event
-        private boolean isValidDataRawSize(AuditEntry auditEntry) {
-            ObjectMapper jsonMapper = new ObjectMapper();
-            try {
-                String strDataRaw = jsonMapper.writeValueAsString(auditEntry.getObjectProperties());
-                if (!strDataRaw.isEmpty() && strDataRaw.getBytes(StandardCharsets.UTF_8).length > MAX_LENGTH_DATA_RAW) {
-                    System.out.println("Payload size has more than " +  MAX_LENGTH_DATA_RAW);
-                    return false;
-                }
-                return true;
-            } catch (Exception exception) {
-                exception.printStackTrace();
-                return false;
-            }
-        }
-
-        // 使用随机值默认日志的发送异常
-        private boolean sendHttpRequest() {
-            Random random = new Random();
-            String url = "http://localhost:8080/v1/log/";
-            url = url + random.nextInt(4, 10);
-
-            RestTemplate restTemplate = new RestTemplate();
-            String response = restTemplate.getForObject(url, String.class);
-            return response != null && response.equals("success");
         }
     }
 }
