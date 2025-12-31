@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,15 +54,34 @@ public class AuditQueueManager {
     }
 
     // 写入到Queue JSON文件时Event必须加锁，保证不会丢失Audit
-    public void queueNewAudit(AuditEntry entry) {
+    public void queueNewAudit(AuditEntry auditEntry) {
+        if (!isValidDataRawSize(auditEntry)) {
+            return;
+        }
         synchronized (queueJsonFile) {
             try (BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(new FileOutputStream(queueJsonFile, true), "UTF-8"))) {
-                writer.write(jsonMapper.writeValueAsString(entry));
+                writer.write(jsonMapper.writeValueAsString(auditEntry));
                 writer.newLine();
             } catch (Exception e) {
                 System.out.println("Unable to queue audit event list " + e.getMessage());
             }
+        }
+    }
+
+    // TODO. 入队列之前判断Audit对象是否有效, 无法发送的Audit没有添加到队列的必要
+    // Log error and ignore sending large payload data raw event
+    private boolean isValidDataRawSize(AuditEntry auditEntry) {
+        try {
+            String strDataRaw = jsonMapper.writeValueAsString(auditEntry.getObjectProperties());
+            if (!strDataRaw.isEmpty() && strDataRaw.getBytes(StandardCharsets.UTF_8).length > MAX_LENGTH_DATA_RAW) {
+                System.out.println("Payload size has more than " +  MAX_LENGTH_DATA_RAW);
+                return false;
+            }
+            return true;
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            return false;
         }
     }
 

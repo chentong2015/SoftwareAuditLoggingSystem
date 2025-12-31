@@ -11,20 +11,15 @@ public class AuditQueueManagerApplication {
     public static void main(String[] args) throws IOException {
         AuditQueueManager auditQueueManager = new AuditQueueManager();
 
-        // 测试写入新的Audit Event事件
+        // 模拟新Audit事件的入队操作
         AuditEntry entry1 = new AuditEntry();
         entry1.setId("0001");
         entry1.setOperatorId("100");
         auditQueueManager.queueNewAudit(entry1);
 
-        // 测试Audit的完整发送流程
+        // 模拟AuditImpl异步线程发送的流程
         auditQueueManager.restoreMissingAudits();
-        long nbAudits = auditQueueManager.sendQueueAudits(entry -> {
-            if (entry.isValidDataRawSize()) {
-                return true;
-            }
-            return HttpHelper.sendGetRequest();
-        });
+        long nbAudits = auditQueueManager.sendQueueAudits(entry -> HttpHelper.sendGetRequest());
         System.out.println(nbAudits);
     }
 }

@@ -6,7 +6,7 @@ import java.io.*;
 
 import static com.audit.client.AuditQueueManager.MAX_QUEUE_SIZE;
 
-// Auditor包含整个程序的核心逻辑
+// Auditor包含核心逻辑: 公开log() API接口
 public class AuditorImpl {
 
     private final AuditQueueManager auditQueueManager;
@@ -46,14 +46,7 @@ public class AuditorImpl {
             if (auditQueueManager.isQueueEmpty()) {
                 return;
             }
-
-            // 返回true才能将audit清除，避免线程的无限循环
-            long nbAudits = auditQueueManager.sendQueueAudits(entry -> {
-                if (entry.isValidDataRawSize()) {
-                    return true;
-                }
-                return HttpHelper.sendGetRequest();
-            });
+            long nbAudits = auditQueueManager.sendQueueAudits(entry -> HttpHelper.sendGetRequest());
             if (nbAudits > MAX_QUEUE_SIZE) {
                 System.out.println("Event queue size is full");
             }
