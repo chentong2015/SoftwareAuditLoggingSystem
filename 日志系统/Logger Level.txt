@@ -1,23 +1,14 @@
 TODO. 日志的不同Level级别:
 程序只会输出特定Level及以上的信息
-log.off("off level");       最高
+log.off("off level");
 log.fatal("Fatal Message!");
 log.error("Error Message!");
 log.warn("Warn Message!");
 log.info("Info Message!");
 log.debug("Debug Message!");
-log.trace("Trace Message!"); 最低
+log.trace("Trace Message!");
 
-TODO. 日志的Verbose详细程度:
-通过Configuration Parameter参数来控制不同细节的信息
+TODO. 日志的Verbose详细程度: 通过Configuration参数来控制细节的信息
 verbose = 0 (Default)
 verbose = 1
 verbose = 99
-
-TODO. 通常日志中WRAN(warning)提示不需修复，特殊情况除外
-如果程序中将抛出的异常"吞噬"并且将其转换成warn输出，则会导致日志中忽略原本的错误
-try {
-    runSomeCodes();
-} catch(HibernateException exception) {
-    Logger.warn("warning message !");
-}
